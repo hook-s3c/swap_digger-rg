@@ -7,6 +7,11 @@ post-exploitation or forensics purpose. It automates swap extraction and
 searches for Linux user credentials, Web form credentials, Web form emails,
 HTTP basic authentication, WiFi SSID and keys, etc.
 
+## This fork
+
+I've refactored the script to use ripgrep instead of grep, just to speed things up.
+
+
 ![Sample run](/assets/swap_digger.png?raw=true "Sample run")
 
 ## Download and run the tool
