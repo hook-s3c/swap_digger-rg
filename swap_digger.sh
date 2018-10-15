@@ -114,7 +114,8 @@ function dig_unix_passwd () {
     [ $VERBOSE ] && out " [+] Using shadow file: ${TARGET_ROOT_DIR}etc/shadow..."
     [ -f "${TARGET_ROOT_DIR}etc/shadow" ] || { error "${TARGET_ROOT_DIR}etc/shadow: No such file."; return 1; }
     out " [+] Digging linux accounts credentials... (pattern attack)"
-    SHADOWHASHES="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | grep -E '^\$.\$')"
+
+    SHADOWHASHES="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | rg '^\$.\$')"
     while read -r thishash; do
         USER="$(grep "${thishash}" ${TARGET_ROOT_DIR}etc/shadow | cut -d':' -f 1)"
         [ $VERBOSE ] && out "   [-] Digging for hash: $thishash  ($USER) ..."
@@ -133,7 +134,8 @@ function dig_unix_passwd () {
             fi
         done <<< "$DUMP"
     done <<< "$SHADOWHASHES"
-    nbHashes="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | grep -c -E '^\$.\$')"
+
+    nbHashes="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | rg -c '^\$.\$')"
     if [ ${#passwordList[@]} -lt $nbHashes ] && ask "Passwords not found. Attempt dictionary based attack? (Can last from 5 minutes to several hours depending on swap usage)"
     then
         out
@@ -161,6 +163,7 @@ function dig_unix_passwd () {
             done <<< "$DUMP"
         done <<< "$SHADOWHASHES"
     fi
+
     nbHashes="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | grep -c -E '^\$.\$')"
     if [ ${#passwordList[@]} -lt $nbHashes ]
     then
@@ -328,7 +331,7 @@ function dig_wifi_info () {
     IFS=$OLDIFS
         out
     out " [+] Looking for potential Wifi passwords method 2...."
-    wifiPasswords2=`grep -o 'psk=.\+' "$swap_dump_path" | cut -f 2 -d '=' | sort | uniq`
+    wifiPasswords2=`rg -o 'psk=.\+' "$swap_dump_path" | cut -f 2 -d '=' | sort | uniq`
     out "   [-] Potential wifi password list (use them to crack above networks)"
     OLDIFS=$IFS; IFS=$'\n';
     for password in $wifiPasswords2
@@ -541,7 +544,7 @@ function swap_digger () {
             strings --bytes=6 "$SWAP_PATH" > "$swap_dump_path"
         else
             out " [+] Looking for swap partition"
-            swap=`cat /proc/swaps | grep -o "/[^ ]\+"`
+            swap=`cat /proc/swaps | rg -o "/[^ ]+"`
             [ -b "$swap" ] || swap=`swapon -s | grep dev | cut -d " " -f 1`
             [ -b "$swap" ] ||  { error "Could not find swap partition -> abort!"; exit 1; }
             out "     -> Found swap at ${swap}"
@@ -580,7 +583,7 @@ function isSwap () {
 # Search for available swap partitiont / files
 function swap_search () {
     out " [+] Current swap file:"
-    swap=`cat /proc/swaps | grep -o "/[^ ]\+"`
+    swap=`cat /proc/swaps | rg "/[^ ]+"`
     if isSwap "$swap"
     then
         out "   -> $swap"
@@ -588,9 +591,9 @@ function swap_search () {
         out "   -> None"
     fi
     out " [+] ${TARGET_ROOT_DIR}etc/fstab swap files:"
-    swap=`cat ${TARGET_ROOT_DIR}etc/fstab | grep swap | cut -d " " -f 1`
+    swap=`cat ${TARGET_ROOT_DIR}etc/fstab | rg swap | cut -d " " -f 1`
     isSwap "$swap"  && out "   -> $swap"
-    swap=`cat ${TARGET_ROOT_DIR}etc/fstab | grep swap -m 1 | cut -d " " -f 5`
+    swap=`cat ${TARGET_ROOT_DIR}etc/fstab | rg swap -m 1 | cut -d " " -f 5`
     isSwap "$swap"  && out "   -> $swap"
     out " [+] Looking for all available swap device files (will take some time):"
     OLDIFS=$IFS; IFS=$'\n';
