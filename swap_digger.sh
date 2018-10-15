@@ -402,7 +402,7 @@ function dig_history () {
     out
     out " [+] TOP 30 files"
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `rg -o 'file://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "$swap_dump_path" | sort | uniq -cd | sort -k1,1nr | head -n 30`
+    for entry in `rg -o 'file://[-A-Za-z0-9+\\\&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "$swap_dump_path" | sort | uniq -cd | sort -k1,1nr | head -n 30`
     do
         out "   -> $entry"
     done
@@ -556,7 +556,6 @@ function swap_digger () {
     swap_dump_size=`ls -lh $swap_dump_path | cut -d " "  -f 5`
     [ $VERBOSE ] && out "    [-] Swap dump size: $swap_dump_size"
     # Let the fun begin!
-    dig_unix_passwd
     [ $EXTENDED ] && {
         dig_web_info
         dig_xml
@@ -565,6 +564,7 @@ function swap_digger () {
         dig_history
     }
     [ $GUESSING ] && guessing
+    dig_unix_passwd
 
 }
 
