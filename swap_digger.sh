@@ -119,7 +119,7 @@ function dig_unix_passwd () {
     while read -r thishash; do
         USER="$(grep "${thishash}" ${TARGET_ROOT_DIR}etc/shadow | cut -d':' -f 1)"
         [ $VERBOSE ] && out "   [-] Digging for hash: $thishash  ($USER) ..."
-        DUMP=`grep -C50 -E "$thishash" "$swap_dump_path";grep -C30 "_pammodutil_getpwnam" "$swap_dump_path";grep -A1 "^sudo " "$swap_dump_path";grep -C5 "gdm-password" "$swap_dump_path"`
+        DUMP=`rg -C50 "$thishash" "$swap_dump_path";rg -C30 "_pammodutil_getpwnam" "$swap_dump_path";rg -A1 "^sudo " "$swap_dump_path";rg -C5 "gdm-password" "$swap_dump_path"`
         CTYPE="$(echo "$thishash" | cut -c-3)"
         SHADOWSALT="$(echo "$thishash" | cut -d'$' -f 3)"
         while read -r line; do
@@ -143,7 +143,7 @@ function dig_unix_passwd () {
         out "   [-] Generating wordlist file..."
         strings --bytes=8 "$swap_dump_path" | sort | uniq -d | sed '/^.\{20\}./d' > "$swap_wordlist_path"  # For performance we have to assume password is present more than once and if between 8 and 20 char
         out "   [-] Digging passwords in wordlist... (This may take 5min to few hours!)"
-        SHADOWHASHES="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | grep -E '^\$.\$')"
+        SHADOWHASHES="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | rg '^\$.\$')"
         while read -r thishash; do
             [ $VERBOSE ] && out "   [-] Digging for hash: $thishash ..."
             DUMP=`cat $swap_wordlist_path`
@@ -164,11 +164,11 @@ function dig_unix_passwd () {
         done <<< "$SHADOWHASHES"
     fi
 
-    nbHashes="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | grep -c -E '^\$.\$')"
+    nbHashes="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | rg -c '^\$.\$')"
     if [ ${#passwordList[@]} -lt $nbHashes ]
     then
         out
-        if john 2> /dev/null | grep -q cracker && ask "Passwords not found. John was detected on the system, attempt to crack ${TARGET_ROOT_DIR}etc/shadow based on dumped swap wordlist?"
+        if john 2> /dev/null | rg -q cracker && ask "Passwords not found. John was detected on the system, attempt to crack ${TARGET_ROOT_DIR}etc/shadow based on dumped swap wordlist?"
         then
             out
             out " [+] Digging linux accounts credentials method 3... (John attack)"
@@ -207,20 +207,20 @@ function dig_web_info () {
     out
     out " [+] Looking for web passwords method 1 (password in GET/POST)..."
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `grep "&password=" "$swap_dump_path"`
+    for entry in `rg "&password=" "$swap_dump_path"`
     do
         out "   -> $entry"
-        password=`echo "$entry" | grep -o 'password=[^&]\+' | cut -f 2 -d '='`
+        password=`echo "$entry" | rg -o 'password=[^&]+' | cut -f 2 -d '='`
         passwdSize=`echo $password | wc -c`
         if [[ $passwdSize -gt 6 ]]
         then
             passwordList=("${passwordList[@]}" "$password") # Add found password to list
         fi
     done
-    for entry in `grep "&pwd=" "$swap_dump_path"`
+    for entry in `rg "&pwd=" "$swap_dump_path"`
     do
         out "   -> $entry"
-        password=`echo "$entry" | grep -o 'pwd=[^&]\+' | cut -f 2 -d '='`
+        password=`echo "$entry" | rg -o 'pwd=[^&]+' | cut -f 2 -d '='`
         passwdSize=`echo $password | wc -c`
         if [[ $passwdSize -gt 6 ]]
         then
@@ -231,10 +231,10 @@ function dig_web_info () {
     out
     out " [+] Looking for web passwords method 2 (JSON) ..."
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `grep "password\",\"value\":\"" "$swap_dump_path"`
+    for entry in `rg 'password","value":"' "$swap_dump_path"`
     do
         out "   -> $entry"
-        password=`echo "$entry" | grep -o 'password\",\"value\":\"[^\"]\+' | cut -f 5 -d '"' `
+        password=`echo "$entry" | rg -o 'password","value":"[^"]+' | cut -f 5 -d '"' `
         passwdSize=`echo $password | wc -c`
         if [[ $passwdSize -gt 6 ]]
         then
@@ -246,7 +246,7 @@ function dig_web_info () {
     out
     out " [+] Looking for web passwords method 3 (HTTP Basic Authentication) ..."
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `grep -E '^Authorization: Basic.+=$' "$swap_dump_path" | cut -d' ' -f 3`
+    for entry in `rg '^Authorization: Basic.+=$' "$swap_dump_path" | cut -d' ' -f 3`
     do
         CREDS="$(echo "$entry" | base64 -d)"
         if [[ "$CREDS" ]]; then
@@ -260,9 +260,9 @@ function dig_web_info () {
     out
     out " [+] Looking for web entered emails..."
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `grep -i 'email=' "$swap_dump_path" | grep @ | uniq`
+    for entry in `rg -i 'email=' "$swap_dump_path" | rg @ | uniq`
     do
-        email=`echo "$entry" | grep -o 'email=[^& ]\+' | cut -f 2 -d '='`
+        email=`echo "$entry" | rg -o 'email=[^& ]+' | cut -f 2 -d '='`
         emailList=("${emailList[@]}" "$email") # Add found email to list
     done
     IFS=$OLDIFS
@@ -288,9 +288,9 @@ function dig_xml() {
     out
     out " [+] Looking for xml passwords ..."
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `grep -o -E  "<password>.+</password>" "$swap_dump_path"`
+    for entry in `rg -o "<password>.+</password>" "$swap_dump_path"`
     do
-        around=`grep -C1 "$entry" "$swap_dump_path"`
+        around=`rg -C1 "$entry" "$swap_dump_path"`
         out "   -> $around"
         password=`echo "$entry" | cut -f 2 -d '>' | cut -f 1 -d '<'`
         passwdSize=`echo $password | wc -c`
@@ -311,7 +311,7 @@ function dig_wifi_info () {
     blue " ==== WiFi ==="
     out
     out " [+] Looking for wifi access points..."
-    wifiNetworks=`grep -C 10  "Auto "  "$swap_dump_path" | grep -C 10 wireless | grep "Auto " | grep -v "NetworkManager" | cut -d " " -f 2,3,4 | sort | uniq`
+    wifiNetworks=`rg -C 10 "Auto " "$swap_dump_path" | rg -C 10 wireless | rg "Auto " | grep -v "NetworkManager" | cut -d " " -f 2,3,4 | sort | uniq`
     out "   [-] Potential wifi network list this computer accessed to:"
     OLDIFS=$IFS; IFS=$'\n';
     for accesspoint in $wifiNetworks
@@ -321,7 +321,7 @@ function dig_wifi_info () {
     IFS=$OLDIFS
     out
     out " [+] Looking for potential Wifi passwords...."
-    wifiPasswords1=`grep -C 10  "Auto "  "$swap_dump_path" | grep -A2 wpa-psk | egrep -v "wpa|addresses|NetworkManager|Auto|wireless|--|NMSetting" | sort | uniq`
+    wifiPasswords1=`rg -C 10 "Auto " "$swap_dump_path" | rg -A2 wpa-psk | egrep -v "wpa|addresses|NetworkManager|Auto|wireless|--|NMSetting" | sort | uniq`
     out "   [-] Potential wifi password list (use them to crack above networks)"
     OLDIFS=$IFS; IFS=$'\n';
     for password in $wifiPasswords1
@@ -346,7 +346,7 @@ function dig_wifi_info () {
 function dig_keepass () {
 
     # Looking for keepass
-    if  grep -C 8  "\.kdb" "$swap_dump_path" | grep -q KeePass
+    if rg -C 8 "\.kdb" "$swap_dump_path" | rg -q KeePass
     then
         out
         out
@@ -460,7 +460,7 @@ function guessing () {
     OLDIFS=$IFS; IFS=$'\n';
     for passwd in ${passwordList[*]}
     do
-        DUMP=`grep -C5 "$passwd" "$swap_dump_path" | egrep -vi "=|;|mail|session|nsI|login|number|desktop|<|/|\.com|--"` # We also remove special char responsible for too much false positive
+        DUMP=`rg -C5 "$passwd" "$swap_dump_path" | egrep -vi "=|;|mail|session|nsI|login|number|desktop|<|/|\.com|--"` # We also remove special char responsible for too much false positive
         # Search for other words near password
         while read -r line; do
             passwdSize=`echo "$passwd" | wc -c`
@@ -493,7 +493,7 @@ function guessing () {
     do
         # Add it to password list
         passwordList=("${passwordList[@]}" "$passwd")
-        DUMP=`grep -C5 "$passwd" "$swap_dump_path" | egrep -vi "=|;|${passwd}|mail|session|nsI|login|number|desktop|<|/|,|\.com|--"` # We also remove special char responsibl for too much false positive and word itself
+        DUMP=`rg -C5 "$passwd" "$swap_dump_path" | egrep -vi "=|;|${passwd}|mail|session|nsI|login|number|desktop|<|/|,|\.com|--"` # We also remove special char responsibl for too much false positive and word itself
         # Search for other words near password
         while read -r line; do
             passwdSize=`echo $passwd| wc -c`
@@ -545,7 +545,7 @@ function swap_digger () {
         else
             out " [+] Looking for swap partition"
             swap=`cat /proc/swaps | rg -o "/[^ ]+"`
-            [ -b "$swap" ] || swap=`swapon -s | grep dev | cut -d " " -f 1`
+            [ -b "$swap" ] || swap=`swapon -s | rg dev | cut -d " " -f 1`
             [ -b "$swap" ] ||  { error "Could not find swap partition -> abort!"; exit 1; }
             out "     -> Found swap at ${swap}"
             # Dumping swap strings
@@ -571,7 +571,7 @@ function swap_digger () {
 
 # Test if is swap device / swap dump
 function isSwap () {
-    if [ -e "$1" ] && strings "$1" 2>/dev/null | head -c20 | grep -q "SWAPSPACE"
+    if [ -e "$1" ] && strings "$1" 2>/dev/null | head -c20 | rg -q "SWAPSPACE"
     then
         return 0
     else
