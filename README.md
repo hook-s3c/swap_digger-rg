@@ -1,15 +1,29 @@
 ![Bash version](https://img.shields.io/badge/Bash-4-brightgreen.svg) ![License](https://img.shields.io/badge/License-GPLv3-blue.svg)
 
-# swap\_digger
+# swap\_digger (hook's ripgrep edition)
 
 swap\_digger is a bash script used to automate Linux swap analysis for
 post-exploitation or forensics purpose. It automates swap extraction and
 searches for Linux user credentials, Web form credentials, Web form emails,
 HTTP basic authentication, WiFi SSID and keys, etc.
 
-## This fork
+## This fork (message from hook)
 
 I've refactored the script to use ripgrep instead of grep, just to speed things up.
+
+In my tests for my 5GB swap file, the original script took 12 minutes, now it takes just over 5.
+
+You will need to add your rust cargo path to your $PATH, especially if you're switching to root to execute.
+
+### Dependencies
+
+- Rust
+- Ripgrep `cargo install rg`
+
+### Other changes to come;
+
+- finishing features detailed in the footer
+- flag for optional bruteforce/wordlist cracking
 
 
 ![Sample run](/assets/swap_digger.png?raw=true "Sample run")
